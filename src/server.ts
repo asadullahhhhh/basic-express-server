@@ -1,61 +1,75 @@
-import express, { Request, Response } from "express";
-import { Pool } from "pg";
-import dotenv from 'dotenv';
-import path from 'path';
+import express, { Request, Response, NextFunction } from "express";
+import config from './config/index';
+import initDB, {pool} from './config/db';
+import {userRouter} from './modules/user/user.routes';
 const app = express();
-const port = 5000;
+const port = config.port;
 
-dotenv.config({path: path.join(process.cwd(), ".env")})
 
 //perser middleware
 app.use(express.json());
 
-//Database
-const pool = new Pool({
-  connectionString: `${process.env.CONNECTION_STR}`,
-});
-
-const initDB = async () => {
-  await pool.query(`
-        CREATE TABLE IF NOT EXISTS users(
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) NOT NULL,
-        email VARCHAR(150) NOT NULL,
-        age INT,
-        phone VARCHAR(15),
-        address TEXT,
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-        )
-        `);
-
-  await pool.query(`
-  CREATE TABLE IF NOT EXISTS todos (
-    id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(id) ON DELETE CASCADE,
-    title VARCHAR(200) NOT NULL,
-    description TEXT,
-    completed BOOLEAN DEFAULT false,
-    due_date DATE,
-    created_at TIMESTAMP DEFAULT NOW(),
-    updated_at TIMESTAMP DEFAULT NOW()
-  )
-`);
-};
-
+//initializing database 
 initDB();
 
 app.get("/", (req: Request, res: Response) => {
   res.send("gelo world");
 });
 
-app.post("/users", (req: Request, res: Response) => {
-  console.log(req.body);
-  res.status(201).json({
-    message: "Data created Successfull",
-    users: true,
-  });
+// user curd
+app.use("/users", userRouter)
+
+// TODOS curd
+app.post("/todos", async (req: Request, res: Response) => {
+  const { user_id, title } = req?.body;
+
+  try {
+    const result = await pool.query(
+      `
+      INSERT INTO todos(user_id, title) VALUES($1, $2) RETURNING *
+    `,
+      [user_id, title]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Data insert successful",
+      data: result.rows,
+    });
+  } catch (err: any) {
+    res.status(404).json({
+      success: false,
+      message: "Data inset faild",
+    });
+  }
 });
+
+app.get("/todos", async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query(`
+      SELECT * FROM todos
+    `);
+
+    res.status(200).json({
+      success: true,
+      message: "Todos found successfully",
+      data: result.rows,
+    });
+  } catch (err: any) {
+    res.status(500).json({
+      success: false,
+      message: err.message,
+    });
+  }
+});
+
+app.use((req: Request, res: Response) => {
+  res.status(404).json({
+    success: false,
+    message: "Route not found",
+    path: req.path
+  })
+})
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
