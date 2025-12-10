@@ -1,5 +1,4 @@
-import {Router, Request, Response} from 'express';
-import {pool} from '../../config/db';
+import {Router} from 'express';
 import logger from '../../middleware/logger';
 import {userController} from './user.controller';
 
