@@ -1,6 +1,7 @@
 import {Router} from 'express';
 import logger from '../../middleware/logger';
 import {userController} from './user.controller';
+import auth from '../../middleware/auth';
 
 const router = Router()
 
@@ -8,7 +9,7 @@ const router = Router()
 
 router.post('/', userController.createUser)
 
-router.get('/', logger, userController.getUser)
+router.get('/', logger, auth("admin"), userController.getUser)
 
 router.get('/:id', userController.getSingleUser)
 
